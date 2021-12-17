@@ -1,0 +1,185 @@
+---
+title: "Exp7-1"
+output: html_document
+---
+```{r message=FALSE, warning=FALSE}
+library(Rcmdr)
+library(plyr)
+library(ggplot2)
+library(ez)
+library(sfsmisc)
+library(gtools)
+library(pracma)
+library(signal)
+```
+
+```{r}
+subs <- dir(path = "./Exp7/Session1/FreeWalkData")
+subs <- mixedsort(subs)
+freewalkspeed <- data.frame()
+for (i in 1:length(subs))
+{
+  DatFreeWalk <- read.table(paste0("./Exp7/Session1/FreeWalkData/",subs[i]), header = FALSE, sep = ";", na.strings = "NA",dec = ".", strip.white = TRUE)
+  DatFreeWalk$V3 <- as.numeric(gsub(",","",DatFreeWalk$V3))
+  DatFreeWalk <- DatFreeWalk[which(DatFreeWalk$V1>5),] # Exclude practice trials
+  DatFreeWalk$V3[which(DatFreeWalk$V1 %% 2 == 0)] <- (DatFreeWalk$V3[which(DatFreeWalk$V1 %% 2 == 0)] - 1300)*-1
+  DatFreeWalk <- DatFreeWalk[which(DatFreeWalk$V3 > 300 & DatFreeWalk$V3 < 800),] # Select data to analyze
+  SubFreeWalk <- ddply(DatFreeWalk,"V1",summarise,time_elasped = max(V2) - min(V2))
+  subspeed <- 5000/sum(SubFreeWalk$time_elasped)
+  freewalkspeed <- rbind(freewalkspeed,list(i,subspeed)) # Unit: cm/s
+}
+```
+
+
+```{r}
+trialnum <- 150
+datfinal <- data.frame()
+for (i in 1:length(subs))
+{
+  dat <- read.table(paste0("./Exp7/Session1/Data/",subs[i]), header = FALSE, sep = ";", na.strings = "NA",dec = ".", strip.white = TRUE)
+  dat$V7 <- as.numeric(gsub(",","",dat$V7))
+  dat$V7[which(dat$V1 %% 2==1)] <- (dat$V7[which(dat$V1 %% 2==1)] - 1300) * -1
+  dat$V8[which(dat$V1 %% 2==1)] <- dat$V8[which(dat$V1 %% 2==1)] * -1
+  dat <- cbind(rep(i,nrow(dat)),dat)
+  for (j in 1:trialnum) 
+  {
+    AvaPos <- data.frame()
+    temp <- dat[which(dat$V1==j),c(1:9)]
+    if (nrow(temp) == 0)
+    {
+      next
+    }
+    IsAva <- temp[which(temp$V7>300),]
+    deg <- switch (temp[1,4],-60,-30,0,30,60)
+    AvaPos[1,1] <- 800+500*cosd(deg)
+    AvaPos[1,2] <- 500*sind(deg)
+    for (k in 1:(nrow(IsAva)-1))
+    {
+      AvaPos[k+1,1] <- AvaPos[k,1]-dat[1,5]*freewalkspeed[i,2]*(IsAva[k+1,3]-IsAva[k,3])*cosd(deg)
+      AvaPos[k+1,2] <- AvaPos[k,2]-dat[1,5]*freewalkspeed[i,2]*(IsAva[k+1,3]-IsAva[k,3])*sind(deg) 
+    }
+    temp[(nrow(temp)-nrow(IsAva)+1):nrow(temp),10:11] <- AvaPos
+    datfinal <- rbind(datfinal,temp)
+  }
+}
+names(datfinal) <- c("Sub","Trial","Time","Pos","Speed","LR","Avatar","X","Y","AvaX","AvaY")
+
+normalizedfinal <- data.frame()
+pathlength <- 1270
+for (i in 1:length(subs))
+{
+  for (j in 1:trialnum)
+  {
+    temp <- subset(datfinal,Sub==i & Trial==j & X>0)
+    if (nrow(temp) == 0)
+    {
+      next
+    }
+    n_y <- interp1(temp$X,temp$Y,c(1:pathlength),'linear', extrap = TRUE)
+    c1 <- rep(i,pathlength)
+    c2 <- rep(temp[1,4],pathlength)
+    c3 <- rep(temp[1,5],pathlength)
+    c4 <- rep(temp[1,6],pathlength)
+    normalizedfinal <- rbind(normalizedfinal,cbind(c1,c2,c3,c4,c(1:pathlength),n_y))
+  }
+}
+names(normalizedfinal) <- c("Sub","Pos","Speed","LR","X","n_y")
+normalizedfinal$n_y[is.infinite(normalizedfinal$n_y)] <- 0
+normalizedfinal1 <- normalizedfinal[which(normalizedfinal$Sub!=19),]
+temppath <- ddply(normalizedfinal1,c("Pos","Speed","LR","X"),summarise,Y=mean(n_y),se=sd(n_y)/sqrt(length(subs)))
+```
+
+```{r}
+plot1 <- temppath
+plot1$Pos <- as.factor(plot1$Pos)
+plot1$Speed <- as.factor(plot1$Speed)
+plot1$LR <- as.factor(plot1$LR)
+plot1$Y <- plot1$Y * -1
+
+ggplot(data=plot1, aes(x=X, y=Y)) + geom_line(aes(linetype=LR,color=Speed),size=0.5) + ylab("Y (cm)") + xlab("X (cm)") + facet_wrap(~Pos, ncol=2) +  scale_x_continuous(breaks=seq(0, 1300, 100),expand=c(0,0)) + scale_y_continuous(breaks=seq(-200, 200, 100),expand=c(0,0)) + coord_cartesian(xlim=c(0,1300),ylim=c(-200, 200)) + theme_bw() + theme(axis.title = element_text(size=15, colour="black"),
+  axis.text  = element_text(size=14, colour="black"),
+  axis.line = element_line(size=0.1),
+  strip.text = element_text(size=14, colour="black"),
+  legend.text = element_text(size=14, colour="black", margin = margin(r = 20, unit = "pt")),
+  legend.title = element_blank(),
+  legend.position = "top",
+  axis.ticks = element_line(size=0.3),
+  axis.text.x = element_text(margin=margin(2, 0, 0, 0, "mm")),
+  axis.text.y = element_text(margin=margin(0, 2, 0, 0, "mm")),
+  axis.ticks.length = unit(-0.1, "cm"),
+  legend.key.width = unit(1.5, "cm"),
+  panel.grid = element_line(size=0.3),
+  panel.spacing.x = unit(0.5, "cm"))
+```
+
+```{r}
+count <- 0
+startplace <- data.frame()
+for (i in c(1:5))
+{
+  for (j in c(1:3))
+  {
+    for (k in c(0:1))
+    {
+      for (l in c(300:500))
+      {
+        s <- 0.2*j+0.6
+        aa <- normalizedfinal1[which(normalizedfinal1$Pos==i & abs(normalizedfinal1$Speed-s)<0.1 & normalizedfinal1$LR==k & normalizedfinal1$X==l),]
+        bb <- ddply(aa,c("Sub","Pos","Speed","LR","X"),summarise,y=mean(n_y))
+        cc <- t.test(bb$y,mu=0)
+        if (cc$p.value<0.05)
+        {
+          count <- count+1
+        }else{
+          count <- 0
+        }
+        if (count==50)
+        {
+          print(l-49)
+          startplace <- rbind(startplace,l-49)
+          print("Next!")
+          break
+        }
+      }
+    }
+  }
+}
+```
+
+```{r}
+finalpath <- temppath
+finalpath$Y <- finalpath$Y * -1
+finalpath <- cbind(finalpath,rep("Data",nrow(finalpath)))
+names(finalpath)[7] <- "Type"
+
+dynamic <- read.table("./path_dynamic.csv",header=FALSE, sep=",", na.strings="NA", dec=".", strip.white=TRUE)
+dynamic <- cbind(dynamic,rep("Model",nrow(dynamic)))
+names(dynamic) <- c("Pos","Speed","LR","X","Y","se","Type")
+
+fit1 <- lm(finalpath$Y~dynamic$Y)
+summary(fit1)
+
+datafig <- rbind(finalpath,dynamic)
+
+datafig$Pos <- datafig$Pos * 30 - 90
+datafig$LR[datafig$LR==0] <- "Left"
+datafig$LR[datafig$LR==1] <- "Right"
+datafig$Pos <- as.factor(datafig$Pos)
+datafig$Speed <- as.factor(datafig$Speed)
+datafig$LR <- as.factor(datafig$LR)
+
+ggplot(data=datafig, aes(x=X, y=Y)) + geom_line(aes(linetype=Type,color=LR),size=0.5) + ylab("Y (cm)") + xlab("X (cm)") + facet_wrap(c("Pos","Speed"), ncol=3) + geom_ribbon(aes(ymin=Y-se*1.96,ymax=Y+se*1.96,group=LR),alpha=0.1) +  scale_x_continuous(breaks=seq(0, 1300, 100),expand=c(0,0)) + scale_y_continuous(breaks=seq(-200, 200, 100),expand=c(0,0)) + coord_cartesian(xlim=c(0,1300),ylim=c(-200, 200)) + theme_bw() + theme(axis.title = element_text(size=20, colour="black"),
+  axis.text  = element_text(size=14, colour="black"),
+  axis.line = element_line(size=0.1),
+  strip.text = element_text(size=14, colour="black"),
+  legend.text = element_text(size=20, colour="black", margin = margin(r = 20, unit = "pt")),
+  legend.title = element_blank(),
+  legend.position = "top",
+  axis.ticks = element_line(size=0.3),
+  axis.text.x = element_text(margin=margin(2, 0, 0, 0, "mm")),
+  axis.text.y = element_text(margin=margin(0, 2, 0, 0, "mm")),
+  axis.ticks.length = unit(-0.1, "cm"),
+  legend.key.width = unit(1.5, "cm"),
+  panel.grid = element_line(size=0.3),
+  panel.spacing.x = unit(0.5, "cm"))
+```

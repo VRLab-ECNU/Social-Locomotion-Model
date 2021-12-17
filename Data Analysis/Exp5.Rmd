@@ -1,0 +1,90 @@
+---
+title: "Exp5"
+output: html_document
+---
+```{r message=FALSE, warning=FALSE}
+library(Rcmdr)
+library(plyr)
+library(ggplot2)
+library(ez)
+library(sfsmisc)
+library(gtools)
+library(rms)
+```
+
+```{r}
+subs <- dir(path = "./Exp5")
+datfinal <- data.frame()
+for (i in 1:length(subs))
+{
+  tps <- dir(path = paste0("./Exp5/",subs[i]))
+  tps <- mixedsort(tps)
+  for (j in 1:length(tps))
+  {
+    dat <- read.table(paste0("./Exp5/",subs[i],"/",tps[j]), header=FALSE, sep="_", na.strings="NA", dec=".", strip.white=TRUE)
+    dat <- dat[2:nrow(dat),]
+    M <- dat[,c(4,5)]
+    FB <- 100*dat[1,2] + 250
+    LD <- 50*dat[1,3]
+    M2 <- M[which(M[,1]>=FB),]
+    if (M2[1,2] < LD)
+    {
+      LR <- 0
+    }
+    else
+    {
+      LR <- 1
+    }
+    datfinal <- rbind(datfinal,list(i,dat[1,1],FB,LD,LR))
+  }
+}
+names(datfinal) <- c("Sub","Angle","FB","LD","LR")
+# datfinal$Sub <- as.factor(datfinal$Sub)
+# datfinal$Angle <- as.factor(datfinal$Angle)
+temp <- ddply(datfinal,c("Sub","LD","FB","Angle"),summarise,pp=mean(LR))
+all <- ddply(temp,c("LD","FB","Angle"),summarise,P=mean(pp),P_SE=sd(pp)/sqrt(length(subs)))
+write.table(all,file = "MultipleLR.csv",row.names = FALSE,col.names = FALSE,sep = ",")
+```
+
+```{r new 4*6}
+multi <- readXL("./Exp3_Energy.xlsx", rownames=FALSE, header=TRUE, na="", sheet="Sheet1", 
+  stringsAsFactors=TRUE)
+
+multi$fig <- factor(multi$fig,levels = mixedsort(levels(multi$fig)))
+multi1 <- subset(multi,type=="Experimental Data")
+multi2 <- subset(multi,type=="Model Prediction")
+
+fit3 <- lm(multi1$y~multi2$y)
+summary(fit3)
+
+ggplot(data=multi, aes(x=x, y=y, group=type)) + geom_line(aes(color=type,linetype=type),size=0.5) + geom_ribbon(aes(ymin=y-se*1.96,ymax=y+se*1.96),alpha=0.3) + ylab("Absolute Y (cm)") + xlab("X (cm)") + facet_wrap(~ fig, ncol=4) +  scale_y_continuous(breaks=seq(0, 100, 50),expand=c(0,0)) + scale_x_continuous(breaks=seq(0, 500, 100),expand=c(0,0)) + coord_cartesian(ylim=c(0,100),xlim=c(0, 500)) + theme_classic() + theme(axis.title = element_text(size=10, colour="black"),
+  axis.text  = element_text(size=11, colour="black"),
+  axis.line = element_line(size=0.1),
+  strip.text = element_text(size=10, colour="black"),
+  strip.background = element_rect(fill = "grey90",size=0),
+  legend.text = element_text(size=10, colour="black", margin = margin(r = 20, unit = "pt")),
+  legend.title = element_blank(),
+  legend.position = "top",
+  axis.ticks = element_line(size=0.3),
+  axis.text.x = element_text(margin=margin(2, 0, 0, 0, "mm")),
+  axis.text.y = element_text(margin=margin(0, 2, 0, 0, "mm")),
+  axis.ticks.length = unit(-0.1, "cm"),
+  legend.key.width = unit(1.5, "cm"),
+  panel.grid = element_line(size=0.3),
+  panel.spacing.x = unit(0.5, "cm"))
+```
+
+```{r logistic correlation}
+datcor <- read.table("./corM.csv",
+   header=FALSE, sep=",", na.strings="NA", dec=".", strip.white=TRUE)
+names(datcor) <- c("data","model")
+
+
+ggplot(data = datcor,aes(x=model,y=data)) + geom_point(size=2) + geom_smooth(colour="deepskyblue3",method = "glm", method.args = list(family = "binomial"), se = FALSE) + ylab("Probability of bypassing from right") + xlab("Model Prediction")+ coord_cartesian(ylim=c(0, 1),xlim = c(0.4, 2)) + scale_y_continuous(breaks=seq(0, 1, 0.2),expand=c(0,0)) + scale_x_continuous(breaks=seq(0.4, 2, 0.4),expand = c(0,0)) + xlab("WL / WR") + theme_classic() + theme(axis.title = element_text(size=15, colour="black"),
+  axis.text  = element_text(size=13, colour="black"),
+  axis.line = element_line(size=0.5),
+  axis.ticks = element_line(size=0.5),
+  axis.text.x = element_text(margin=margin(2, 0, 0, 0, "mm")),
+  axis.text.y = element_text(margin=margin(0, 2, 0, 0, "mm")),
+  axis.ticks.length=unit(-0.1, "cm"))
+```

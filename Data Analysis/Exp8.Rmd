@@ -1,0 +1,66 @@
+---
+title: "Exp8"
+output: html_document
+---
+```{r message=FALSE, warning=FALSE}
+library(Rcmdr)
+library(plyr)
+library(ggplot2)
+library(ez)
+library(sfsmisc)
+library(gtools)
+```
+
+```{r}
+multi <- readXL("./Exp4_Energy.xlsx", rownames=FALSE, header=TRUE, na="", sheet="Sheet1", 
+  stringsAsFactors=TRUE)
+
+multi$fig <- factor(multi$fig,levels = mixedsort(levels(multi$fig)))
+multi1 <- subset(multi,type=="Experimental Data")
+multi2 <- subset(multi,type=="Model Prediction")
+
+fit3 <- lm(multi1$y~multi2$y)
+summary(fit3)
+
+ggplot(data=multi, aes(x=x, y=y, group=type)) + geom_line(aes(color=type,linetype=type),size=0.5) + geom_ribbon(aes(ymin=y-se*1.96,ymax=y+se*1.96),alpha=0.2) + ylab("Absolute Y (cm)") + xlab("X (cm)") + facet_wrap(~ fig, ncol=4) +  scale_y_continuous(breaks=seq(0, 125, 50),expand=c(0,0)) + scale_x_continuous(breaks=seq(0, 700, 200),expand=c(0,0)) + coord_cartesian(ylim=c(0,125),xlim=c(0, 700)) + theme_classic() + theme(axis.title = element_text(size=10, colour="black"),
+  axis.text  = element_text(size=9, colour="black"),
+  axis.line = element_line(size=0.1),
+  strip.text = element_text(size=7, colour="black"),
+  strip.background = element_rect(fill = "grey90",size=0),
+  strip.text.x = element_text(margin = margin(0.05,0,0.05,0, "cm")),
+  legend.text = element_text(size=10, colour="black", margin = margin(r = 20, unit = "pt")),
+  legend.title = element_blank(),
+  legend.position = "top",
+  axis.ticks = element_line(size=0.3),
+  axis.text.x = element_text(margin=margin(2, 0, 0, 0, "mm")),
+  axis.text.y = element_text(margin=margin(0, 2, 0, 0, "mm")),
+  axis.ticks.length = unit(-0.1, "cm"),
+  legend.key.width = unit(1.5, "cm"),
+  panel.grid = element_line(size=0.3),
+  panel.spacing.x = unit(0.5, "cm"))
+```
+
+```{r model comparison}
+multi <- readXL("./Real_Route.xlsx", rownames=FALSE, header=TRUE, na="", sheet="Sheet1", 
+  stringsAsFactors=TRUE)
+multi$y <- abs(multi$y)
+multi$type <- factor(multi$type, levels = c("Experimental Data", "Social Locomotion Model", "Collision Avoidance Model"))
+ggplot(data=multi, aes(x=x, y=y, group=type)) + geom_line(aes(color=type,linetype=type),size=0.5)+
+  scale_linetype_manual(values=c("solid", "dashed","dashed")) + geom_ribbon(aes(ymin=y-se*1.96,ymax=y+se*1.96),alpha=0.2) + ylab("Absolute Y (cm)") + xlab("X (cm)") + facet_wrap(~ fig, ncol=4) +  scale_y_continuous(breaks=seq(0, 125, 50),expand=c(0,0)) + scale_x_continuous(breaks=seq(0, 700, 200),expand=c(0,0)) + coord_cartesian(ylim=c(0,125),xlim=c(0, 700)) + theme_classic() + theme(axis.title = element_text(size=10, colour="black"),
+  axis.text  = element_text(size=9, colour="black"),
+  axis.line = element_line(size=0.1),
+  strip.text = element_text(size=7, colour="black"),
+  strip.background = element_rect(fill = "grey90",size=0),
+  strip.text.x = element_text(margin = margin(0.05,0,0.05,0, "cm")),
+  legend.text = element_text(size=10, colour="black", margin = margin(r = 20, unit = "pt")),
+  legend.title = element_blank(),
+  legend.position = "top",
+  axis.ticks = element_line(size=0.3),
+  axis.text.x = element_text(margin=margin(2, 0, 0, 0, "mm")),
+  axis.text.y = element_text(margin=margin(0, 2, 0, 0, "mm")),
+  axis.ticks.length = unit(-0.1, "cm"),
+  legend.key.width = unit(1.5, "cm"),
+  panel.grid = element_line(size=0.3),
+  panel.spacing.x = unit(0.5, "cm"))
+```
+

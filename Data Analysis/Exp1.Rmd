@@ -1,0 +1,135 @@
+---
+title: "Exp1"
+output: html_document
+---
+```{r message=FALSE, warning=FALSE}
+library(Rcmdr)
+library(plyr)
+library(ggplot2)
+library(ez)
+library(sfsmisc)
+library(gtools)
+library(rms)
+library(zoo)
+library(pracma)
+```
+
+```{r}
+subs <- dir(path = "./Exp1")
+datfinal <- data.frame()
+fps <- 1/90
+for (i in 1:length(subs))
+{
+  tps <- dir(path = paste0("./Exp1/",subs[i]))
+  tps <- mixedsort(tps)
+  for (j in 1:length(tps))
+  {
+    dat <- read.table(paste0("./Exp1/",subs[i],"/",tps[j]), header=FALSE, sep="_", na.strings="NA", dec=".", strip.white=TRUE)
+    dat <- dat[2:nrow(dat),]
+    M <- dat[,c(2,3)]
+    v <- cbind(diff(M[,1]),diff(M[,2]))
+    v <- rbind(v[1,],v)
+    a <- cbind(diff(v[,1]),diff(v[,2]))
+    a <- rbind(a[1,],a)
+    t <- fps*c(1:nrow(a))
+    AUCx <- trapz(t,abs(a[,1]))
+    M2 <- M[which(M[,1]>=250),]
+    datfinal <- rbind(datfinal,list(i,dat[1,1],M2[1,2]))
+  }
+}
+names(datfinal) <- c("Sub","Angle","LR")
+datfinal$LR[datfinal$LR<0] <- 0
+datfinal$LR[datfinal$LR>0] <- 1
+datfinal$Sub <- as.factor(datfinal$Sub)
+# datfinal$Angle <- as.factor(datfinal$Angle)
+temp <- ddply(datfinal,c("Sub","Angle"),summarise,pp=mean(LR))
+all <- ddply(temp,"Angle",summarise,P=mean(pp),P_SE=sd(pp)/sqrt(length(subs)))
+```
+
+```{r some meaningless analysis}
+test <- subset(temp,Angle==60)
+t.test(test$pp,mu = 0.5)
+```
+
+```{r}
+temp$Angle <- as.factor(temp$Angle)
+fit <- ezANOVA(data = temp,
+               dv = pp,
+               wid = Sub,
+               within = Angle)
+print(fit)
+
+fit2 <- ddply(datfinal,c("Sub","Angle"),summarise,P=mean(LR))
+fit2_1 <- subset(fit2,Angle==30)
+fit2_2 <- subset(fit2,Angle==150)
+model <- t.test(fit2_1$P,fit2_2$P,paired = TRUE)
+es <- lsr::cohensD(x=fit2_1$P,y=fit2_2$P,method="paired")
+```
+
+```{r line}
+ggplot(data = all,aes(x=Angle,y=P)) + geom_point(size=1.5) + geom_line(size=0.5) + geom_errorbar(aes(ymin=P-P_SE, ymax=P+P_SE), width=10,size=0.5,position=position_dodge(8)) + ylab("Probability of bypassing from right") + xlab("Orientation of the virtual human (°)")+ coord_cartesian(xlim=c(0,330),ylim=c(0, 1)) + scale_x_continuous(breaks=seq(0, 330, 30)) + scale_y_continuous(breaks=seq(0, 1, 0.2),expand=c(0,0)) + theme_classic() + theme(axis.title = element_text(size=8, colour="black",family = "Helvetica"),
+  axis.text  = element_text(size=6, colour="black"),
+  axis.line = element_line(size=0.25),
+  axis.ticks = element_line(size=0.25),
+  axis.text.x = element_text(margin=margin(2, 0, 0, 0, "mm")),
+  axis.text.y = element_text(margin=margin(0, 2, 0, 0, "mm")),
+  axis.ticks.length=unit(-0.1, "cm"))
+```
+
+```{r linear correlation}
+datcor <- read.table("./cor.csv",
+   header=FALSE, sep=",", na.strings="NA", dec=".", strip.white=TRUE)
+names(datcor) <- c("data","model")
+# datcor$data <- 1-datcor$data
+fit <- lm(datcor$data~datcor$model)
+summary(fit)
+
+ggplot(data = datcor,aes(x=model,y=data)) + geom_point(size=2,shape=16) + geom_smooth(method='lm',fullrange=TRUE) + scale_y_continuous(breaks=seq(0, 1, 0.1),expand=c(0,0)) + scale_x_continuous(breaks=seq(0, 1, 0.1),expand=c(0,0)) + coord_cartesian(ylim=c(0,1),xlim=c(0, 1)) + theme_classic() + theme(
+  axis.title = element_text(size=10, colour="black"),
+  axis.text  = element_text(size=9, colour="black"),
+  axis.line = element_line(size=0.5),
+  axis.ticks = element_line(size=0.5),
+  axis.text.x = element_text(margin=margin(2, 0, 0, 0, "mm")),
+  axis.text.y = element_text(margin=margin(0, 2, 0, 0, "mm")),
+  axis.ticks.length = unit(-0.1, "cm")
+  )
+```
+
+```{r logistic regression}
+datcor <- read.table("./corlog.csv",
+   header=FALSE, sep=",", na.strings="NA", dec=".", strip.white=TRUE)
+names(datcor) <- c("y","x")
+
+ggplot(data = datcor,aes(x=x,y=y)) + geom_smooth(method='glm',method.args = list(family = "binomial"), fullrange=TRUE, se=FALSE) + scale_y_continuous(breaks=seq(0, 1, 0.2),expand=c(0,0)) + scale_x_continuous(breaks=seq(0.2, 1.8, 0.4),expand=c(0,0)) + coord_cartesian(ylim=c(0,1),xlim=c(0.2, 1.8)) + xlab("WL / WR") + ylab("Probability of bypassing from right") + theme_classic() + theme(
+  axis.title = element_text(size=7.69, colour="black"),
+  axis.text  = element_text(size=6.29, colour="black"),
+  axis.line = element_line(size=0.3),
+  axis.ticks = element_line(size=0.3),
+  axis.text.x = element_text(margin=margin(2, 0, 0, 0, "mm")),
+  axis.text.y = element_text(margin=margin(0, 2, 0, 0, "mm")),
+  axis.ticks.length = unit(-0.1, "cm")
+  )
+```
+
+```{r}
+datcor <- read.table("./results/cor.csv",
+   header=FALSE, sep=",", na.strings="NA", dec=".", strip.white=TRUE)
+names(datcor) <- c("data","model")
+modeldata <- cbind(all,rep("Experimental Data",nrow(all)))
+names(modeldata)[4] <- "Type"
+modellist <- modeldata
+modellist$P <- datcor$model
+modellist$P_SE <- 0
+modellist$Type <- "Model Prediction"
+modeldata <- rbind(modeldata,modellist)
+
+ggplot(data = modeldata,aes(x=Angle,y=P,group=Type)) + geom_point(aes(shape=Type),size=1.5) + geom_line(aes(linetype=Type),size=0.5) + geom_ribbon(aes(ymin=P-1.96*P_SE,ymax=P+1.96*P_SE),alpha=0.2) + ylab("Probability of bypassing from right") + xlab("Orientation of the virtual human (°)")+ coord_cartesian(xlim=c(0,330),ylim=c(0, 1)) + scale_x_continuous(breaks=seq(0, 330, 30)) + scale_y_continuous(breaks=seq(0, 1, 0.2),expand=c(0,0)) + theme_classic() + theme(axis.title = element_text(size=8, colour="black",family = "Helvetica"),
+  axis.text  = element_text(size=6, colour="black"),
+  axis.line = element_line(size=0.25),
+  axis.ticks = element_line(size=0.25),
+  legend.position = "none",
+  axis.text.x = element_text(margin=margin(2, 0, 0, 0, "mm")),
+  axis.text.y = element_text(margin=margin(0, 2, 0, 0, "mm")),
+  axis.ticks.length=unit(-0.1, "cm"))
+```
+

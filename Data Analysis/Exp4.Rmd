@@ -1,0 +1,119 @@
+---
+title: "Exp4"
+output: html_document
+---
+```{r message=FALSE, warning=FALSE}
+library(Rcmdr)
+library(plyr)
+library(ggplot2)
+library(ez)
+library(sfsmisc)
+library(gtools)
+library(pracma)
+```
+
+```{r}
+subs <- dir(path = "./Exp4")
+datfinal <- data.frame()
+fps <- 70
+for (i in 1:length(subs))
+{
+  tps <- dir(path = paste0("./Exp4/",subs[i]))
+  tps <- mixedsort(tps)
+  for (j in 1:length(tps))
+  {
+    dat <- read.table(paste0("./Exp4/",subs[i],"/",tps[j]), header=FALSE, sep="_", na.strings="NA", dec=".", strip.white=TRUE)
+    dat <- dat[2:nrow(dat),]
+    M <- dat[,c(2,3)]
+    v <- cbind(diff(M[,1]),diff(M[,2]))
+    v <- rbind(v[1,],v)
+    a <- cbind(diff(v[,1]),diff(v[,2]))
+    a <- rbind(a[1,],a)
+    t <- fps*c(1:nrow(a))
+    AUCx <- trapz(t,abs(a[,1]))
+    datfinal <- rbind(datfinal,list(i,dat[1,1],max(M[,2]),AUCx))
+  }
+}
+names(datfinal) <- c("Sub","Angle","D","E")
+# datfinal$Sub <- as.factor(datfinal$Sub)
+# datfinal$Angle <- as.factor(datfinal$Angle)
+temp <- ddply(datfinal,c("Sub","Angle"),summarise,dd=mean(D),ee=mean(E))
+all <- ddply(temp,"Angle",summarise,MLD=mean(dd),D_SE=sd(dd)/sqrt(length(subs)),Energy=mean(ee),E_SE=sd(ee)/sqrt(length(subs)))
+```
+
+```{r}
+temp$Angle <- as.factor(temp$Angle)
+fit <- ezANOVA(data = temp,
+               dv = dd,
+               wid = Sub,
+               within = Angle)
+print(fit)
+```
+
+```{r polar}
+alltest <- rbind(all,all[1,])
+alltest$Angle <- as.numeric(as.character(alltest$Angle))
+alltest[13,1] <- 360
+alltest[13,3] <- NA
+ggplot(data=alltest, aes(x=Angle, y=MLD,group=1)) +
+    geom_line(size=1) + geom_errorbar(aes(ymin=MLD-D_SE, ymax=MLD+D_SE), width=0,size=0.5) + ylab("Maximum Lateral Distance (cm)") + coord_polar(start = 90/180*pi,clip = "off") + ylim(60,100) + scale_x_continuous(limits = c(0,360), breaks = seq(0,360,by=30)) + theme_bw()
+# ggsave(file = "FigPolar.pdf")
+```
+
+```{r Model Prediction for trajectories of Exp2}
+fitting <- readXL("./Exp2-Energy.xlsx", rownames=FALSE, header=TRUE, na="", sheet="Sheet1", 
+  stringsAsFactors=TRUE)
+fitting$fig <- factor(fitting$fig,levels = mixedsort(levels(fitting$fig)))
+
+dat1 <- subset(fitting,type=="Experimental Data")
+dat2 <- subset(fitting,type=="Model Prediction")
+fit <- lm(dat1$y~dat2$y)
+summary(fit)
+
+ggplot(data=fitting, aes(x=x, y=y, group=type)) + geom_line(aes(color=type,linetype=type),size=0.5) + geom_ribbon(aes(ymin=y-se*1.96,ymax=y+se*1.96),alpha=0.2) + coord_cartesian(ylim=c(0, 100),xlim = c(0,500)) + scale_y_continuous(breaks=seq(0, 100, 50),expand=c(0,0)) + scale_x_continuous(breaks=seq(0, 500, 100),expand = c(0,0)) + ylab("Absolute Y (cm)") + xlab("X (cm)") + facet_wrap(~ fig, ncol=2) + theme_classic() + theme(axis.title = element_text(size=10, colour="black"),
+  axis.text  = element_text(size=9, colour="black"),
+  axis.line = element_line(size=0.1),
+  strip.text = element_text(size=10, colour="black"),
+  strip.background = element_rect(fill = "grey90",size=0),
+  legend.text = element_text(size=10, colour="black", margin = margin(r = 20, unit = "pt")),
+  legend.title = element_blank(),
+  legend.position = "top",
+  axis.ticks = element_line(size=0.3),
+  axis.text.x = element_text(margin=margin(2, 0, 0, 0, "mm")),
+  axis.text.y = element_text(margin=margin(0, 2, 0, 0, "mm")),
+  axis.ticks.length = unit(-0.1, "cm"),
+  legend.key.width = unit(1.5, "cm"),
+  panel.grid = element_line(size=0.3),
+  panel.spacing.x = unit(0.5, "cm"))
+```
+
+```{r Model Prediction for MLD of Exp2 POLAR}
+
+dat <- 
+  read.table("./MLD.csv",
+   header=FALSE, sep=",", na.strings="NA", dec=".", strip.white=TRUE)
+modeldata <- cbind(all,rep("Data",nrow(all)))
+names(modeldata)[6] <- "Type"
+modellist <- modeldata
+modellist$MLD <- dat$V1
+modellist$D_SE <- 0
+modellist$Type <- "Model"
+modeldata <- rbind(modeldata,modellist)
+
+# datt1 <- subset(MLD,type=="Experimental Data")
+# datt2 <- subset(MLD,type=="Model Prediction")
+# fit1 <- lm(datt1$d~datt2$d)
+# summary(fit1)
+# modeldata$Angle <- as.factor(modeldata$Angle)
+
+alltest <- rbind(modeldata,modeldata[1,],modeldata[13,])
+# alltest$Angle <- as.numeric(as.character(alltest$Angle))
+alltest[25,1] <- 360
+# alltest[25,3] <- NA
+alltest[26,1] <- 360
+# alltest[26,3] <- NA
+ggplot(data=alltest, aes(x=Angle, y=MLD,group=Type)) +geom_point(aes(shape=Type),size=3)+
+    geom_line(aes(linetype=Type),size=1) + geom_ribbon(aes(ymin=MLD-1.96*D_SE,ymax=MLD+1.96*D_SE),alpha=0.2) + ylab("Maximum Lateral Distance (cm)") + coord_polar(start = 90/180*pi,clip = "off") + ylim(60,100) + scale_x_continuous(limits = c(0,360), breaks = seq(0,360,by=30)) + theme_bw()
+```
+
+```
