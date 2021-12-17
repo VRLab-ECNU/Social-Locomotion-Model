@@ -16,4 +16,4 @@ The output path is generated in an (X,Y) format with the unit of centimeter and 
 
 ## Instructions for use
 Data for replicating the results in the manuscript are available at http://doi.org/10.6084/m9.figshare.17250029
-You can download the data folder of each experiment in the same directory of the corresponding experiment-specified code and run code to get results.
+You can download the data folder of each experiment to the same directory as the corresponding experiment-specified code and run code to get results described in the manuscript.
