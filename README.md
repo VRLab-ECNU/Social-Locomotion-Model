@@ -15,5 +15,5 @@ The Demo shows how the social locomotion model generated the path by taking the 
 The output path is generated in an (X,Y) format with the unit of centimeter and the computation usually takes around 0.5 second with a map width of 5 meters.
 
 ## Instructions for use
-Data for replicating the results in the manuscript are available at doi.org/10.6084/m9.figshare.17250029
+Data for replicating the results in the manuscript are available at http://doi.org/10.6084/m9.figshare.17250029
 You can download the data folder of each experiment in the same directory of the corresponding experiment-specified code and run code to get results.
