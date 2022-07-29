@@ -12,7 +12,7 @@ library(gtools)
 ```
 
 ```{r}
-multi <- readXL("./Exp4_Energy.xlsx", rownames=FALSE, header=TRUE, na="", sheet="Sheet1", 
+multi <- readXL("./Exp4.xlsx", rownames=FALSE, header=TRUE, na="", sheet="Sheet1", 
   stringsAsFactors=TRUE)
 
 multi$fig <- factor(multi$fig,levels = mixedsort(levels(multi$fig)))
