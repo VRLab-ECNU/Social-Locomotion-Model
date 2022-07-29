@@ -1,0 +1,186 @@
+---
+title: "Energy_RobotMulti"
+author: "ZC"
+date: "5/27/2021"
+output: html_document
+---
+```{r message=FALSE, warning=FALSE}
+library(Rcmdr)
+library(plyr)
+library(ggplot2)
+library(ez)
+library(sfsmisc)
+library(gtools)
+```
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+trialnum <- 48
+subs <- dir(path = "./Data")
+subs <- mixedsort(subs)
+datall <- data.frame()
+for (i in 1:length(subs))
+{
+  dat <- readXL(paste0("./Data/",subs[i]),
+   rownames=FALSE, header=TRUE, na="", sheet="工作表1", stringsAsFactors=FALSE)
+  dat <- dat[1:trialnum,c(2,3,5,6)]
+  datall <- rbind(datall,cbind(rep(i,nrow(dat)),dat))
+}
+names(datall) <- c("Sub","Type","Pos","Com","Judge")
+subjectfinal_temp <- ddply(datall,c("Sub","Type","Pos"),summarise,sub_com1=mean(Com),sub_judge1=mean(Judge))
+subjectfinal <- ddply(subjectfinal_temp,c("Sub","Type"),summarise,sub_com=mean(sub_com1),sub_judge=mean(sub_judge1))
+datfinal <- ddply(subjectfinal,"Type",summarise,feel=mean(sub_com),judgment=mean(sub_judge),feel_se=sd(sub_com)/sqrt(length(subs)),judgment_se=sd(sub_judge)/sqrt(length(subs)))
+
+
+# post test in SPSS
+comf <- data.frame("Sub"=1:16,"human"=subjectfinal$sub_com[which(subjectfinal$Type=='Human')],"Companian"=subjectfinal$sub_com[which(subjectfinal$Type=='Companian')],"NBody"=subjectfinal$sub_com[which(subjectfinal$Type=='NBody')],"Social"=subjectfinal$sub_com[which(subjectfinal$Type=='Social')])
+write.table(comf,file = "Comfort_Data.csv",row.names = FALSE,col.names =TRUE,sep = ",")
+
+judge <- data.frame("Sub"=1:16,"human"=subjectfinal$sub_judge[which(subjectfinal$Type=='Human')],"Companian"=subjectfinal$sub_judge[which(subjectfinal$Type=='Companian')],"NBody"=subjectfinal$sub_judge[which(subjectfinal$Type=='NBody')],"Social"=subjectfinal$sub_judge[which(subjectfinal$Type=='Social')])
+write.table(judge,file = "Judgement_Data.csv",row.names = FALSE,col.names =TRUE,sep = ",")
+#
+
+
+subdp <- subjectfinal
+subdp$sub_judge <- qnorm(subdp$sub_judge)
+subdp1 <- subset(subdp,Type=="Human")
+subdp2 <- subset(subdp,Type=="Social")
+subdp3 <- subset(subdp,Type=="Companian")
+subdp4 <- subset(subdp,Type=="NBody")
+
+subdp1$dp <- subdp1$sub_judge - subdp2$sub_judge
+subdp1$Type <- "Human vs. Social Locomotion Algorithm"
+
+subdptemp <- subdp1
+subdptemp$dp <- subdp1$sub_judge - subdp3$sub_judge
+subdptemp$Type <- "Human vs. COMPANIAN Framework"
+
+subdptemp2 <- subdp1
+subdptemp2$dp <- subdp1$sub_judge - subdp4$sub_judge
+subdptemp2$Type <- "Human vs. N Body Algorithm"
+
+subdpall <- rbind(subdp1,subdptemp,subdptemp2)
+
+t.test(subdptemp$dp,subdp1$dp,paired = TRUE)
+es1 <- lsr::cohensD(x=subdptemp$dp,y=subdp1$dp,method="paired")
+
+t.test(subdptemp2$dp,subdp1$dp,paired = TRUE)
+es2 <- lsr::cohensD(x=subdptemp2$dp,y=subdp1$dp,method="paired")
+
+alldp <- ddply(subdpall,"Type",summarise,d_prime=mean(dp),d_prime_se=sd(dp)/sqrt(length(subs)))
+```
+
+```{r}
+# sta <- subjectfinal
+# sta$HorR <- as.factor(sta$HorR)
+# sta$Sub <- as.factor(sta$Sub)
+# fit1 <- ezANOVA(data = sta,
+#                dv = sub_com,
+#                wid = Sub,
+#                within = .(HorR))
+# print(fit1)
+# 
+# fit2 <- ezANOVA(data = sta,
+#                dv = sub_judge,
+#                wid = Sub,
+#                within = .(HorR))
+# print(fit2)
+
+# fit1_1 <- subset(subjectfinal,Type=="Human")
+# fit1_2 <- subset(subjectfinal,Type=="Social")
+# model1 <- t.test(fit1_1$sub_com,fit1_2$sub_com,paired = TRUE)
+# es1 <- lsr::cohensD(x=fit1_1$sub_com,y=fit1_2$sub_com,method="paired")
+# model1
+# 
+# fit1_3 <- subset(subjectfinal,Type=="Model")
+# fit1_4 <- subset(subjectfinal,Type=="Robot")
+# model2 <- t.test(fit1_3$sub_com,fit1_4$sub_com,paired = TRUE)
+# es2 <- lsr::cohensD(x=fit1_3$sub_com,y=fit1_4$sub_com,method="paired")
+# model2
+
+# fit2_1 <- subset(subjectfinal,HorR==0)
+# fit2_2 <- subset(subjectfinal,HorR==1)
+# model2 <- t.test(fit2_1$sub_judge,fit2_2$sub_judge,paired = TRUE)
+# es2 <- lsr::cohensD(x=fit2_1$sub_judge,y=fit2_2$sub_judge,method="paired")
+# model2
+```
+
+```{r dprime}
+plotalldp <- alldp
+plotalldp$Type <- factor(plotalldp$Type, levels = c("Human vs. Social Locomotion Algorithm", "Human vs. COMPANIAN Framework", "Human vs. N Body Algorithm"))
+ggplot(data = plotalldp,aes(x=Type,y=d_prime,fill=Type)) + geom_bar(stat="identity",position=position_dodge(),width = 0.3,size=1) + geom_errorbar(aes(ymin=d_prime-d_prime_se, ymax=d_prime+d_prime_se), width=0.08,size=0.5) + geom_point(data = subdpall,aes(x=Type,y=dp),size=1.5,alpha=0.3) + ylab("Discrimination ability (d')") + coord_cartesian(ylim=c(-1, 3)) + scale_y_continuous(breaks=seq(-1, 3, 1),expand=c(0,0)) + scale_fill_manual(values=c('#00BFC4','#F8766D','#006699')) + theme_classic() + theme(axis.title.y = element_text(size=9, colour="black",family = "Helvetica"),
+  axis.text  = element_text(size=9, colour="black"),
+  axis.title.x = element_blank(),
+  axis.line = element_line(size=0.25),
+  axis.ticks = element_line(size=0.25),
+  legend.position="none",
+  axis.text.x = element_text(margin=margin(2, 0, 0, 0, "mm")),
+  axis.text.y = element_text(margin=margin(0, 2, 0, 0, "mm")),
+  axis.ticks.length=unit(-0.1, "cm"))
+ggsave("Energy_RobotMulti_dprime.pdf",width = 7, height = 6.2, units = "cm",useDingbats=FALSE)
+```
+
+```{r}
+datplot <- datfinal
+datplot$Type[datplot$Type=="Human"] <- "Reproduction of Human Trajectory"
+datplot$Type[datplot$Type=="Social"] <- "Social Locomotion Algorithm"
+datplot$Type[datplot$Type=="Companian"] <- "COMPANIAN Framework"
+datplot$Type[datplot$Type=="NBody"] <- "N Body Algorithm"
+datplot$Type <- factor(datplot$Type, levels = c("Reproduction of Human Trajectory", "Social Locomotion Algorithm", "COMPANIAN Framework", "N Body Algorithm"))
+
+subdatplot <- subjectfinal
+subdatplot$Type[subdatplot$Type=="Human"] <- "Reproduction of Human Trajectory"
+subdatplot$Type[subdatplot$Type=="Social"] <- "Social Locomotion Algorithm"
+subdatplot$Type[subdatplot$Type=="Companian"] <- "COMPANIAN Framework"
+subdatplot$Type[subdatplot$Type=="NBody"] <- "N Body Algorithm"
+subdatplot$Type <- factor(subdatplot$Type, levels = c("Reproduction of Human Trajectory", "Social Locomotion Algorithm", "COMPANIAN Framework", "N Body Algorithm"))
+
+ggplot(data = datplot,aes(x=Type,y=feel,fill=Type)) + geom_bar(stat="identity",position=position_dodge(),width = 0.4,size=1) + geom_errorbar(aes(ymin=feel-feel_se, ymax=feel+feel_se), width=0.08,size=0.5) + geom_point(data = subdatplot,aes(x=Type,y=sub_com),size=1.5,alpha=0.3) + ylab("Rating score") + coord_cartesian(ylim=c(0, 5)) + scale_y_continuous(breaks=seq(0, 5, 1),expand=c(0,0)) + scale_fill_manual(values=c('#00BA38','#00BFC4','#F8766D','#006699')) + theme_classic()  + theme(axis.title.y = element_text(size=9, colour="black",family = "Helvetica"),
+  axis.text  = element_text(size=9, colour="black"),
+  axis.title.x = element_blank(),
+  axis.line = element_line(size=0.25),
+  axis.ticks = element_line(size=0.25),
+  legend.position="none",
+  axis.text.x = element_text(margin=margin(2, 0, 0, 0, "mm")),
+  axis.text.y = element_text(margin=margin(0, 2, 0, 0, "mm")),
+  axis.ticks.length=unit(-0.1, "cm"))
+ggsave("Energy_RobotMulti_Rating.pdf",width = 7, height = 6.2, units = "cm",useDingbats=FALSE)
+```
+
+```{r}
+ggplot(data = subjectfinal,aes(x=Type,y=sub_com)) + geom_bar(stat="identity",position=position_dodge(), colour="black",width = 0.3,size=1) + ylab("Subjective rating") + xlab("Type of algorithm")+ coord_cartesian(ylim=c(0, 5)) + scale_y_continuous(breaks=seq(0, 5, 1),expand=c(0,0)) + theme_bw() + facet_wrap(~Sub,ncol = 4) + theme(axis.title = element_text(size=15, colour="black"),
+  axis.text  = element_text(size=15, colour="black"),
+  axis.line = element_line(size=0.5),
+  axis.ticks = element_line(size=0.5),
+  legend.text = element_text(size=15, colour="black"),
+  legend.title = element_text(size=15, colour="black"),
+  legend.position = c(0.88,0.8),
+  axis.text.x = element_text(margin=margin(2, 0, 0, 0, "mm")),
+  axis.text.y = element_text(margin=margin(0, 2, 0, 0, "mm")),
+  axis.ticks.length=unit(-0.1, "cm"))
+```
+
+```{r}
+ggplot(data = datplot,aes(x=Type,y=judgment,fill=Type)) + geom_bar(stat="identity",position=position_dodge(),width = 0.4,size=1) + geom_errorbar(aes(ymin=judgment-judgment_se, ymax=judgment+judgment_se), width=0.08,size=0.5) + geom_point(data = subdatplot,aes(x=Type,y=sub_judge),size=1.5,alpha=0.3) + ylab("Probability of being judged as human") + coord_cartesian(ylim=c(0, 1)) + scale_y_continuous(breaks=seq(0, 1, 0.2),expand=c(0,0)) + scale_fill_manual(values=c('#00BA38','#00BFC4','#F8766D','#006699')) + theme_classic()  + theme(axis.title.y = element_text(size=9, colour="black",family = "Helvetica"),
+  axis.text  = element_text(size=9, colour="black"),
+  axis.title.x = element_blank(),
+  axis.line = element_line(size=0.25),
+  axis.ticks = element_line(size=0.25),
+  legend.position="none",
+  axis.text.x = element_text(margin=margin(2, 0, 0, 0, "mm")),
+  axis.text.y = element_text(margin=margin(0, 2, 0, 0, "mm")),
+  axis.ticks.length=unit(-0.1, "cm"))
+ggsave("Energy_RobotMulti_Judgment.pdf",width = 7, height = 6.2, units = "cm",useDingbats=FALSE)
+```
+
+```{r}
+ggplot(data = subjectfinal,aes(x=Type,y=sub_judge)) + geom_bar(stat="identity",position=position_dodge(), colour="black",width = 0.3,size=1) + ylab("Probability of being judged as human") + xlab("Type of algorithm")+ coord_cartesian(ylim=c(0, 1)) + scale_y_continuous(breaks=seq(0, 1, 0.1),expand=c(0,0)) + theme_bw() + facet_wrap(~Sub,ncol = 4) + theme(axis.title = element_text(size=15, colour="black"),
+  axis.text  = element_text(size=15, colour="black"),
+  axis.line = element_line(size=0.5),
+  axis.ticks = element_line(size=0.5),
+  legend.text = element_text(size=15, colour="black"),
+  legend.title = element_text(size=15, colour="black"),
+  legend.position = c(0.88,0.8),
+  axis.text.x = element_text(margin=margin(2, 0, 0, 0, "mm")),
+  axis.text.y = element_text(margin=margin(0, 2, 0, 0, "mm")),
+  axis.ticks.length=unit(-0.1, "cm"))
+```

@@ -1,0 +1,126 @@
+---
+title: "Energy_Robot_m1"
+author: "ZC"
+date: "5/27/2021"
+output: html_document
+---
+```{r message=FALSE, warning=FALSE}
+library(Rcmdr)
+library(plyr)
+library(ggplot2)
+library(ez)
+library(sfsmisc)
+library(gtools)
+```
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+trialnum <- 80
+subs <- dir(path = "./Data")
+subs <- mixedsort(subs)
+datall <- data.frame()
+for (i in 1:length(subs))
+{
+  dat <- read.table(paste0("./Data/",subs[i]), header=TRUE, stringsAsFactors=TRUE, sep=",", na.strings="NA", dec=".", 
+  strip.white=TRUE)
+  dat <- dat[1:trialnum,c(2:4,6,7)]
+  datall <- rbind(datall,cbind(rep(i,nrow(dat)),dat))
+}
+names(datall) <- c("Sub","m1","Pos","Ori","Com","Judge")
+subjectfinal <- ddply(datall,c("Sub","m1"),summarise,sub_com=mean(Com),sub_judge=mean(Judge))
+datfinal <- ddply(subjectfinal,"m1",summarise,feel=mean(sub_com),judgment=mean(sub_judge),feel_se=sd(sub_com)/sqrt(length(subs)),judgment_se=sd(sub_judge)/sqrt(length(subs)))
+
+
+# post test in SPSS
+comf <- data.frame("Sub"=1:15,"0.0"=subjectfinal$sub_com[which(subjectfinal$m1==0.0)],"0.2"=subjectfinal$sub_com[which(subjectfinal$m1==0.2)],"0.4"=subjectfinal$sub_com[which(subjectfinal$m1==0.4)],"0.6"=subjectfinal$sub_com[which(subjectfinal$m1==0.6)],"0.8"=subjectfinal$sub_com[which(subjectfinal$m1==0.8)],"1.0"=subjectfinal$sub_com[which(subjectfinal$m1==1.0)],"2.0"=subjectfinal$sub_com[which(subjectfinal$m1==2.0)],"4.0"=subjectfinal$sub_com[which(subjectfinal$m1==4.0)],"6.0"=subjectfinal$sub_com[which(subjectfinal$m1==6.0)],"8.0"=subjectfinal$sub_com[which(subjectfinal$m1==8.0)])
+names(comf) <- c("Sub","0","0.2","0.4","0.6","0.8","1.0","2.0","4.0","6.0","8.0")
+write.table(comf,file = "Comfort_Data.csv",row.names = FALSE,col.names =TRUE,sep = ",")
+
+judge <- data.frame("Sub"=1:15,"0.0"=subjectfinal$sub_judge[which(subjectfinal$m1==0.0)],"0.2"=subjectfinal$sub_judge[which(subjectfinal$m1==0.2)],"0.4"=subjectfinal$sub_judge[which(subjectfinal$m1==0.4)],"0.6"=subjectfinal$sub_judge[which(subjectfinal$m1==0.6)],"0.8"=subjectfinal$sub_judge[which(subjectfinal$m1==0.8)],"1.0"=subjectfinal$sub_judge[which(subjectfinal$m1==1.0)],"2.0"=subjectfinal$sub_judge[which(subjectfinal$m1==2.0)],"4.0"=subjectfinal$sub_judge[which(subjectfinal$m1==4.0)],"6.0"=subjectfinal$sub_judge[which(subjectfinal$m1==6.0)],"8.0"=subjectfinal$sub_judge[which(subjectfinal$m1==8.0)])
+names(judge) <- c("Sub","0","0.2","0.4","0.6","0.8","1.0","2.0","4.0","6.0","8.0")
+write.table(judge,file = "Judgement_Data.csv",row.names = FALSE,col.names =TRUE,sep = ",")
+#
+
+```
+
+```{r}
+# sta <- subjectfinal
+# sta$HorR <- as.factor(sta$HorR)
+# sta$Sub <- as.factor(sta$Sub)
+# fit1 <- ezANOVA(data = sta,
+#                dv = sub_com,
+#                wid = Sub,
+#                within = .(HorR))
+# print(fit1)
+# 
+# fit2 <- ezANOVA(data = sta,
+#                dv = sub_judge,
+#                wid = Sub,
+#                within = .(HorR))
+# print(fit2)
+# 
+# fit1_1 <- subset(subjectfinal,HorR==0)
+# fit1_2 <- subset(subjectfinal,HorR==1)
+# model1 <- t.test(fit1_1$sub_com,fit1_2$sub_com,paired = TRUE)
+# es1 <- lsr::cohensD(x=fit1_1$sub_com,y=fit1_2$sub_com,method="paired")
+# model1
+# 
+# fit2_1 <- subset(subjectfinal,HorR==0)
+# fit2_2 <- subset(subjectfinal,HorR==1)
+# model2 <- t.test(fit2_1$sub_judge,fit2_2$sub_judge,paired = TRUE)
+# es2 <- lsr::cohensD(x=fit2_1$sub_judge,y=fit2_2$sub_judge,method="paired")
+# model2
+```
+
+```{r}
+ggplot(data = datfinal,aes(x=m1,y=feel)) + geom_point(size=2) + geom_line(size=1) + geom_errorbar(aes(ymin=feel-feel_se, ymax=feel+feel_se), width=0.15,size=1) + ylab("Subjective rating") + xlab("Value of parameter m1")+ coord_cartesian(xlim=c(0,8),ylim=c(1, 5)) + scale_y_continuous(breaks=seq(1, 5, 1),expand=c(0,0)) + scale_x_continuous(breaks=seq(0, 8, 1)) + theme_bw() + theme(axis.title = element_text(size=15, colour="black"),
+  axis.text  = element_text(size=15, colour="black"),
+  axis.line = element_line(size=0.5),
+  axis.ticks = element_line(size=0.5),
+  legend.text = element_text(size=15, colour="black"),
+  legend.title = element_blank(),
+  legend.position = c(0.9,0.85),
+  axis.text.x = element_text(margin=margin(2, 0, 0, 0, "mm")),
+  axis.text.y = element_text(margin=margin(0, 2, 0, 0, "mm")),
+  axis.ticks.length=unit(-0.1, "cm"))
+# ggsave("Energy_Robot_m_com.pdf",width = 16, height = 10,units = "cm",useDingbats=FALSE)
+```
+
+```{r}
+ggplot(data = subjectfinal,aes(x=m1,y=sub_com)) + geom_point(size=2) + geom_line(size=1) + ylab("Subjective rating") + xlab("Value of parameter m1")+ coord_cartesian(xlim=c(0,8),ylim=c(1, 5)) + scale_y_continuous(breaks=seq(1, 5, 1),expand=c(0,0)) + scale_x_continuous(breaks=seq(0, 8, 1)) + theme_bw() + facet_wrap(~Sub) + theme(axis.title = element_text(size=15, colour="black"),
+  axis.text  = element_text(size=15, colour="black"),
+  axis.line = element_line(size=0.5),
+  axis.ticks = element_line(size=0.5),
+  legend.text = element_text(size=15, colour="black"),
+  legend.title = element_blank(),
+  legend.position = c(0.9,0.85),
+  axis.text.x = element_text(margin=margin(2, 0, 0, 0, "mm")),
+  axis.text.y = element_text(margin=margin(0, 2, 0, 0, "mm")),
+  axis.ticks.length=unit(-0.1, "cm"))
+```
+
+```{r}
+ggplot(data = datfinal,aes(x=m1,y=judgment)) + geom_point(size=2) + geom_line(size=1) + geom_errorbar(aes(ymin=judgment-judgment_se, ymax=judgment+judgment_se), width=0.15,size=1) + ylab("Probability of being judged as human") + xlab("Value of parameter m1")+ coord_cartesian(xlim=c(0,8),ylim=c(0, 1)) + scale_y_continuous(breaks=seq(0, 1, 0.1),expand=c(0,0)) + scale_x_continuous(breaks=seq(0, 8, 1)) + theme_bw() + theme(axis.title = element_text(size=15, colour="black"),
+  axis.text  = element_text(size=15, colour="black"),
+  axis.line = element_line(size=0.5),
+  axis.ticks = element_line(size=0.5),
+  legend.text = element_text(size=15, colour="black"),
+  legend.title = element_blank(),
+  legend.position = c(0.9,0.85),
+  axis.text.x = element_text(margin=margin(2, 0, 0, 0, "mm")),
+  axis.text.y = element_text(margin=margin(0, 2, 0, 0, "mm")),
+  axis.ticks.length=unit(-0.1, "cm"))
+# ggsave("Energy_Robot_m_judge.pdf",width = 16, height = 10,units = "cm",useDingbats=FALSE)
+```
+
+```{r}
+ggplot(data = subjectfinal,aes(x=m1,y=sub_judge)) + geom_point(size=2) + geom_line(size=1) + ylab("Probability of being judged as human") + xlab("Value of parameter m1")+ coord_cartesian(xlim=c(0,8),ylim=c(0, 1)) + scale_y_continuous(breaks=seq(0, 1, 0.1),expand=c(0,0)) + scale_x_continuous(breaks=seq(0, 8, 1)) + theme_bw() + facet_wrap(~Sub) + theme(axis.title = element_text(size=15, colour="black"),
+  axis.text  = element_text(size=15, colour="black"),
+  axis.line = element_line(size=0.5),
+  axis.ticks = element_line(size=0.5),
+  legend.text = element_text(size=15, colour="black"),
+  legend.title = element_blank(),
+  legend.position = c(0.9,0.85),
+  axis.text.x = element_text(margin=margin(2, 0, 0, 0, "mm")),
+  axis.text.y = element_text(margin=margin(0, 2, 0, 0, "mm")),
+  axis.ticks.length=unit(-0.1, "cm"))
+```
