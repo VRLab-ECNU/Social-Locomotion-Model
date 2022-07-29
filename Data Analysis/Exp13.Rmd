@@ -1,9 +1,8 @@
 ---
-title: "Energy_Robot_m1"
-author: "ZC"
-date: "5/27/2021"
+title: "Exp13"
 output: html_document
 ---
+
 ```{r message=FALSE, warning=FALSE}
 library(Rcmdr)
 library(plyr)
@@ -28,18 +27,6 @@ for (i in 1:length(subs))
 names(datall) <- c("Sub","m1","Pos","Ori","Com","Judge")
 subjectfinal <- ddply(datall,c("Sub","m1"),summarise,sub_com=mean(Com),sub_judge=mean(Judge))
 datfinal <- ddply(subjectfinal,"m1",summarise,feel=mean(sub_com),judgment=mean(sub_judge),feel_se=sd(sub_com)/sqrt(length(subs)),judgment_se=sd(sub_judge)/sqrt(length(subs)))
-
-
-# post test in SPSS
-comf <- data.frame("Sub"=1:15,"0.0"=subjectfinal$sub_com[which(subjectfinal$m1==0.0)],"0.2"=subjectfinal$sub_com[which(subjectfinal$m1==0.2)],"0.4"=subjectfinal$sub_com[which(subjectfinal$m1==0.4)],"0.6"=subjectfinal$sub_com[which(subjectfinal$m1==0.6)],"0.8"=subjectfinal$sub_com[which(subjectfinal$m1==0.8)],"1.0"=subjectfinal$sub_com[which(subjectfinal$m1==1.0)],"2.0"=subjectfinal$sub_com[which(subjectfinal$m1==2.0)],"4.0"=subjectfinal$sub_com[which(subjectfinal$m1==4.0)],"6.0"=subjectfinal$sub_com[which(subjectfinal$m1==6.0)],"8.0"=subjectfinal$sub_com[which(subjectfinal$m1==8.0)])
-names(comf) <- c("Sub","0","0.2","0.4","0.6","0.8","1.0","2.0","4.0","6.0","8.0")
-write.table(comf,file = "Comfort_Data.csv",row.names = FALSE,col.names =TRUE,sep = ",")
-
-judge <- data.frame("Sub"=1:15,"0.0"=subjectfinal$sub_judge[which(subjectfinal$m1==0.0)],"0.2"=subjectfinal$sub_judge[which(subjectfinal$m1==0.2)],"0.4"=subjectfinal$sub_judge[which(subjectfinal$m1==0.4)],"0.6"=subjectfinal$sub_judge[which(subjectfinal$m1==0.6)],"0.8"=subjectfinal$sub_judge[which(subjectfinal$m1==0.8)],"1.0"=subjectfinal$sub_judge[which(subjectfinal$m1==1.0)],"2.0"=subjectfinal$sub_judge[which(subjectfinal$m1==2.0)],"4.0"=subjectfinal$sub_judge[which(subjectfinal$m1==4.0)],"6.0"=subjectfinal$sub_judge[which(subjectfinal$m1==6.0)],"8.0"=subjectfinal$sub_judge[which(subjectfinal$m1==8.0)])
-names(judge) <- c("Sub","0","0.2","0.4","0.6","0.8","1.0","2.0","4.0","6.0","8.0")
-write.table(judge,file = "Judgement_Data.csv",row.names = FALSE,col.names =TRUE,sep = ",")
-#
-
 ```
 
 ```{r}
@@ -82,7 +69,7 @@ ggplot(data = datfinal,aes(x=m1,y=feel)) + geom_point(size=2) + geom_line(size=1
   axis.text.x = element_text(margin=margin(2, 0, 0, 0, "mm")),
   axis.text.y = element_text(margin=margin(0, 2, 0, 0, "mm")),
   axis.ticks.length=unit(-0.1, "cm"))
-# ggsave("Energy_Robot_m_com.pdf",width = 16, height = 10,units = "cm",useDingbats=FALSE)
+# ggsave("Exp13_m_com.pdf",width = 16, height = 10,units = "cm",useDingbats=FALSE)
 ```
 
 ```{r}
@@ -109,7 +96,7 @@ ggplot(data = datfinal,aes(x=m1,y=judgment)) + geom_point(size=2) + geom_line(si
   axis.text.x = element_text(margin=margin(2, 0, 0, 0, "mm")),
   axis.text.y = element_text(margin=margin(0, 2, 0, 0, "mm")),
   axis.ticks.length=unit(-0.1, "cm"))
-# ggsave("Energy_Robot_m_judge.pdf",width = 16, height = 10,units = "cm",useDingbats=FALSE)
+# ggsave("Exp13_m_judge.pdf",width = 16, height = 10,units = "cm",useDingbats=FALSE)
 ```
 
 ```{r}
