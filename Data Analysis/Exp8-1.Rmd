@@ -1,0 +1,146 @@
+---
+title: "Exp8-1"
+output: html_document
+---
+```{r message=FALSE, warning=FALSE}
+library(Rcmdr)
+library(plyr)
+library(ggplot2)
+library(ez)
+library(sfsmisc)
+library(gtools)
+library(pracma)
+library(signal)
+```
+
+```{r}
+subs <- dir(path = "./Exp8/FreeWalkData")
+subs <- mixedsort(subs)
+freewalkspeed <- data.frame()
+for (i in 1:length(subs))
+{
+  DatFreeWalk <- read.table(paste0("./Exp8/FreeWalkData/",subs[i]), header = FALSE, sep = ";", na.strings = "NA",dec = ".", strip.white = TRUE)
+  DatFreeWalk$V3 <- as.numeric(gsub(",","",DatFreeWalk$V3))
+  DatFreeWalk <- DatFreeWalk[which(DatFreeWalk$V1>5),] # Exclude practice trials
+  DatFreeWalk$V3[which(DatFreeWalk$V1 %% 2 == 0)] <- (DatFreeWalk$V3[which(DatFreeWalk$V1 %% 2 == 0)] - 1300)*-1
+  DatFreeWalk <- DatFreeWalk[which(DatFreeWalk$V3 > 300 & DatFreeWalk$V3 < 800),] # Select data to analyze
+  SubFreeWalk <- ddply(DatFreeWalk,"V1",summarise,time_elasped = max(V2) - min(V2))
+  subspeed <- 5000/sum(SubFreeWalk$time_elasped)
+  freewalkspeed <- rbind(freewalkspeed,list(i,subspeed)) # Unit: cm/s
+}
+```
+
+```{r}
+trialnum <- 150
+datfinal <- data.frame()
+for (i in 1:length(subs))
+{
+  dat <- read.table(paste0("./Exp8/Data/",subs[i]), header = FALSE, sep = ";", na.strings = "NA",dec = ".", strip.white = TRUE)
+  dat$V7 <- as.numeric(gsub(",","",dat$V7))
+  dat$V7[which(dat$V1 %% 2==1)] <- (dat$V7[which(dat$V1 %% 2==1)] - 1300) * -1
+  dat$V8[which(dat$V1 %% 2==1)] <- dat$V8[which(dat$V1 %% 2==1)] * -1
+  dat <- cbind(rep(i,nrow(dat)),dat)
+  for (j in 1:trialnum) 
+  {
+    AvaPos <- data.frame()
+    temp <- dat[which(dat$V1==j),c(1:9)]
+    if (nrow(temp) == 0)
+    {
+      next
+    }
+    IsAva <- temp[which(temp$V7>300),]
+    deg <- switch (temp[1,4],-60,-30,0,30,60)
+    AvaPos[1,1] <- 800+500*cosd(deg)
+    AvaPos[1,2] <- 500*sind(deg)
+    for (k in 1:(nrow(IsAva)-1))
+    {
+      AvaPos[k+1,1] <- AvaPos[k,1]-dat[1,5]*freewalkspeed[i,2]*(IsAva[k+1,3]-IsAva[k,3])*cosd(deg)
+      AvaPos[k+1,2] <- AvaPos[k,2]-dat[1,5]*freewalkspeed[i,2]*(IsAva[k+1,3]-IsAva[k,3])*sind(deg) 
+    }
+    temp[(nrow(temp)-nrow(IsAva)+1):nrow(temp),10:11] <- AvaPos
+    datfinal <- rbind(datfinal,temp)
+  }
+}
+names(datfinal) <- c("Sub","Trial","Time","Pos","Speed","LR","Avatar","X","Y","AvaX","AvaY")
+
+normalizedfinal <- data.frame()
+pathlength <- 1270
+for (i in 1:length(subs))
+{
+  for (j in 1:trialnum)
+  {
+    temp <- subset(datfinal,Sub==i & Trial==j & X>0)
+    if (nrow(temp) == 0)
+    {
+      next
+    }
+    n_y <- interp1(temp$X,temp$Y,c(1:pathlength),'linear', extrap = TRUE)
+    c1 <- rep(i,pathlength)
+    c2 <- rep(temp[1,4],pathlength)
+    c3 <- rep(temp[1,5],pathlength)
+    c4 <- rep(temp[1,6],pathlength)
+    normalizedfinal <- rbind(normalizedfinal,cbind(c1,c2,c3,c4,c(1:pathlength),n_y))
+  }
+}
+names(normalizedfinal) <- c("Sub","Pos","Speed","LR","X","n_y")
+normalizedfinal$n_y[is.infinite(normalizedfinal$n_y)] <- 0
+normalizedfinal1 <- normalizedfinal[which(normalizedfinal$Sub!=19),]
+temppath <- ddply(normalizedfinal1,c("Pos","Speed","LR","X"),summarise,Y=mean(n_y),se=sd(n_y)/sqrt(length(subs)))
+```
+
+```{r}
+normalizedspeed <- data.frame()
+for (i in 1:length(subs))
+{
+  for (j in 1:trialnum)
+  {
+    temp <- subset(datfinal,Sub==i & Trial==j & X>300 & X<600)
+    if (nrow(temp) == 0)
+    {
+      next
+    }
+    diffxy <- cbind(diff(temp$X),diff(temp$Y))
+    diffxy <- rbind(diffxy[1,],diffxy)
+    diffpath <- sqrt(diffxy[,1]^2+diffxy[,2]^2)
+    normalizedspeed <- rbind(normalizedspeed,list(temp[1,4],temp[1,5],temp[1,6],min(diffpath),mean(diffpath),max(diffpath)))
+  }
+  print(i)
+}
+names(normalizedspeed) <- c("Pos","Speed","LR","min_V","mean_V","max_V")
+normalizedspeed1 <- normalizedspeed[which(normalizedspeed$Sub!=19),]
+speedAll <- ddply(normalizedspeed1,c("Pos","Speed","LR"),summarise,minV=mean(min_V),meanV=mean(mean_V),maxV=mean(max_V))
+```
+
+```{r}
+count <- 0
+startplace <- data.frame()
+for (i in c(1:5))
+{
+  for (j in c(1:3))
+  {
+    for (k in c(0:1))
+    {
+      for (l in c(300:500))
+      {
+        s <- 0.2*j+0.6
+        aa <- normalizedfinal1[which(normalizedfinal1$Pos==i & abs(normalizedfinal1$Speed-s)<0.1 & normalizedfinal1$LR==k & normalizedfinal1$X==l),]
+        bb <- ddply(aa,c("Sub","Pos","Speed","LR","X"),summarise,y=mean(n_y))
+        cc <- t.test(bb$y,mu=0)
+        if (cc$p.value<0.05)
+        {
+          count <- count+1
+        }else{
+          count <- 0
+        }
+        if (count==50)
+        {
+          print(l-49)
+          startplace <- rbind(startplace,l-49)
+          print("Next!")
+          break
+        }
+      }
+    }
+  }
+}
+```

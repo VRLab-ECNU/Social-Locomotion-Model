@@ -1,0 +1,101 @@
+---
+title: "Exp4"
+output: html_document
+---
+```{r message=FALSE, warning=FALSE}
+library(Rcmdr)
+library(plyr)
+library(ggplot2)
+library(ez)
+library(sfsmisc)
+library(gtools)
+library(pracma)
+```
+
+```{r}
+subs <- dir(path = "./Exp4")
+datfinal <- data.frame()
+fps <- 70
+for (i in 1:length(subs))
+{
+  tps <- dir(path = paste0("./Exp4/",subs[i]))
+  tps <- mixedsort(tps)
+  for (j in 1:length(tps))
+  {
+    dat <- read.table(paste0("./Exp4/",subs[i],"/",tps[j]), header=FALSE, sep="_", na.strings="NA", dec=".", strip.white=TRUE)
+    dat <- dat[2:nrow(dat),]
+    M <- dat[,c(2,3)]
+    v <- cbind(diff(M[,1]),diff(M[,2]))
+    v <- rbind(v[1,],v)
+    a <- cbind(diff(v[,1]),diff(v[,2]))
+    a <- rbind(a[1,],a)
+    t <- fps*c(1:nrow(a))
+    AUCx <- trapz(t,abs(a[,1]))
+    datfinal <- rbind(datfinal,list(i,dat[1,1],max(M[,2]),AUCx))
+  }
+}
+names(datfinal) <- c("Sub","Angle","D","E")
+temp <- ddply(datfinal,c("Sub","Angle"),summarise,dd=mean(D),ee=mean(E))
+all <- ddply(temp,"Angle",summarise,MLD=mean(dd),D_SE=sd(dd)/sqrt(length(subs)),Energy=mean(ee),E_SE=sd(ee)/sqrt(length(subs)))
+```
+
+```{r}
+temp$Angle <- as.factor(temp$Angle)
+fit <- ezANOVA(data = temp,
+               dv = dd,
+               wid = Sub,
+               within = Angle)
+print(fit)
+```
+
+```{r Model Prediction for MLD of Exp2}
+dat <- 
+  read.table("./MLD.csv",
+   header=FALSE, sep=",", na.strings="NA", dec=".", strip.white=TRUE)
+modeldata <- cbind(all,rep("Data",nrow(all)))
+names(modeldata)[6] <- "Type"
+modellist <- modeldata
+modellist$MLD <- dat$V1
+modellist$D_SE <- 0
+modellist$Type <- "Model"
+modeldata <- rbind(modeldata,modellist)
+
+datt1 <- subset(MLD,type=="Experimental Data")
+datt2 <- subset(MLD,type=="Model Prediction")
+fit1 <- lm(datt1$d~datt2$d)
+summary(fit1)
+```
+
+```{r Model Prediction for MLD of Exp2 POLAR}
+dat <- 
+  read.table("./MLD.csv",
+   header=FALSE, sep=",", na.strings="NA", dec=".", strip.white=TRUE)
+modeldata <- cbind(all,rep("Data",nrow(all)))
+names(modeldata)[6] <- "Type"
+modellist <- modeldata
+modellist$MLD <- dat$V1
+modellist$D_SE <- 0
+modellist$Type <- "Model"
+modeldata <- rbind(modeldata,modellist)
+
+datt1 <- subset(MLD,type=="Experimental Data")
+datt2 <- subset(MLD,type=="Model Prediction")
+fit1 <- lm(datt1$d~datt2$d)
+summary(fit1)
+```
+
+```{r linear correlation EnergyRatio}
+datcor <- read.table("./cor.csv",
+   header=FALSE, sep=",", na.strings="NA", dec=".", strip.white=TRUE)
+names(datcor) <- c("data","model")
+fit <- lm(datcor$data~datcor$model)
+summary(fit)
+```
+
+```{r linear correlation PathRatio}
+datcor <- read.table("./corP.csv",
+   header=FALSE, sep=",", na.strings="NA", dec=".", strip.white=TRUE)
+names(datcor) <- c("data","model")
+fit <- lm(datcor$data~datcor$model)
+summary(fit)
+```

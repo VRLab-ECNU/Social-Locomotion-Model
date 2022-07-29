@@ -1,0 +1,144 @@
+---
+title: "Exp6"
+output: html_document
+---
+```{r message=FALSE, warning=FALSE}
+library(Rcmdr)
+library(plyr)
+library(ggplot2)
+library(ez)
+library(sfsmisc)
+library(gtools)
+library(rms)
+library(pracma)
+library(egg)
+```
+
+```{r}
+subs <- dir(path = "./Exp6")
+subs <- mixedsort(subs)
+datfinal <- data.frame()
+for (i in 1:length(subs))
+{
+  tps <- dir(path = paste0("./Exp6/",subs[i]))
+  tps <- mixedsort(tps)
+  for (j in 1:length(tps))
+  {
+    dat <- read.table(paste0("./Exp6/",subs[i],"/",tps[j]), header=FALSE, sep="_", na.strings="NA", dec=".", strip.white=TRUE)
+    dat <- dat[2:nrow(dat),]
+    dat$V3[which(dat$V3==(-1))] <- dat$V3[which(dat$V3==(-1))]*(-1)
+    dat$V5[which(dat$V3==(-1))] <- dat$V5[which(dat$V3==(-1))]*(-1)
+    dat$V5 <- dat$V5*(-1)
+    FB <- 100*dat[1,2] + 250
+    LD <- 50*dat[1,3]
+    M <- dat[,c(4,5)]
+    dat_all <- M
+    if (dat_all$V4[1]>1)
+      {
+        dat_all$V4[1] <- 0
+      }
+    x_step <- seq(1,470,len = 470)
+    dat_all <- dat_all[!duplicated(dat_all$V4),]
+    dat_all <- arrange(dat_all,V4)
+    y_revised <- interp1(dat_all$V4,dat_all$V5,x_step,'linear')
+    subdat_revised <- data.frame("Sub"=rep(i,470),"Trial"=rep(j,470),"Angle"=rep(dat$V1[1],470),"Dis"=rep(FB,470),"LD"=rep(LD,470))
+    subdat_revised <- cbind(subdat_revised,x_step,y_revised)
+    datfinal <- rbind(datfinal,subdat_revised)
+    datfinal <- rbind(datfinal,dat)
+  }
+}
+names(datfinal) <- c("Sub","Trial","Angle","Dis","LD","X","Y")
+temp <- ddply(datfinal,c("Sub","Angle","Dis","LD","X"),summarise,Mean_Y=mean(Y))
+all <- ddply(temp,c("Angle","Dis","LD","X"),summarise,Y=mean(Mean_Y),SE=sd(Mean_Y)/sqrt(25))
+all <- cbind(all,rep("Experiment path",nrow(all)))
+names(all) <- c("Angle","Dis","LD","X","Y","se","Type")
+dat_all_exp <- all[,c(4,5,6,7)]
+dat_all_exp <- cbind(dat_all_exp,rep(0,nrow(dat_all_exp)))
+names(dat_all_exp) <- c("X","Y","se","Type","Condition")
+
+dat_all_exp$Condition[which(all$Angle==0 & all$LD==0 & all$Dis==150)] <- 1
+dat_all_exp$Condition[which(all$Angle==90 & all$LD==0 & all$Dis==150)] <- 2
+dat_all_exp$Condition[which(all$Angle==180 & all$LD==0 & all$Dis==150)] <- 3
+dat_all_exp$Condition[which(all$Angle==270 & all$LD==0 & all$Dis==150)] <- 4
+
+dat_all_exp$Condition[which(all$Angle==0 & all$LD==0 & all$Dis==350)] <- 5
+dat_all_exp$Condition[which(all$Angle==90 & all$LD==0 & all$Dis==350)] <- 6
+dat_all_exp$Condition[which(all$Angle==180 & all$LD==0 & all$Dis==350)] <- 7
+dat_all_exp$Condition[which(all$Angle==270 & all$LD==0 & all$Dis==350)] <- 8
+
+dat_all_exp$Condition[which(all$Angle==0 & all$LD==0 & all$Dis==250)] <- 9
+dat_all_exp$Condition[which(all$Angle==90 & all$LD==0 & all$Dis==250)] <- 10
+dat_all_exp$Condition[which(all$Angle==180 & all$LD==0 & all$Dis==250)] <- 11
+dat_all_exp$Condition[which(all$Angle==270 & all$LD==0 & all$Dis==250)] <- 12
+
+dat_all_exp$Condition[which(all$Angle==0 & all$LD==50 & all$Dis==150)] <- 13
+dat_all_exp$Condition[which(all$Angle==90 & all$LD==50 & all$Dis==150)] <- 14
+dat_all_exp$Condition[which(all$Angle==180 & all$LD==50 & all$Dis==150)] <- 15
+dat_all_exp$Condition[which(all$Angle==270 & all$LD==50 & all$Dis==150)] <- 16
+
+dat_all_exp$Condition[which(all$Angle==0 & all$LD==50 & all$Dis==350)] <- 17
+dat_all_exp$Condition[which(all$Angle==90 & all$LD==50 & all$Dis==350)] <- 18
+dat_all_exp$Condition[which(all$Angle==180 & all$LD==50 & all$Dis==350)] <- 19
+dat_all_exp$Condition[which(all$Angle==270 & all$LD==50 & all$Dis==350)] <- 20
+
+dat_all_exp$Condition[which(all$Angle==0 & all$LD==50 & all$Dis==250)] <- 21
+dat_all_exp$Condition[which(all$Angle==90 & all$LD==50 & all$Dis==250)] <- 22
+dat_all_exp$Condition[which(all$Angle==180 & all$LD==50 & all$Dis==250)] <- 23
+dat_all_exp$Condition[which(all$Angle==270 & all$LD==50 & all$Dis==250)] <- 24
+
+dat_all_exp$Type <- as.factor(dat_all_exp$Type)
+dat_all_exp$Condition <- as.factor(dat_all_exp$Condition)
+```
+
+```{r plot model path and experiment path}
+Model_Path <- read.csv("path_multiple_new.csv",header = FALSE,sep = ",")
+names(Model_Path) <- c("LD","Dis","Angle","X","Y")
+Model_Path$LD <- Model_Path$LD*(-100)
+Model_Path$Dis <- Model_Path$Dis*(100)
+Model_Path_all <- data.frame("se"=rep(0,nrow(Model_Path)),"Type"=rep("Model_path",nrow(Model_Path)),"Condition"=rep(0,nrow(Model_Path)))
+Model_Path_all <- cbind(Model_Path[,c(4,5)],Model_Path_all)
+
+Model_Path_all$Condition[which(Model_Path$Angle==0 & Model_Path$LD==0 & Model_Path$Dis==150)] <- 1
+Model_Path_all$Condition[which(Model_Path$Angle==90 & Model_Path$LD==0 & Model_Path$Dis==150)] <- 2
+Model_Path_all$Condition[which(Model_Path$Angle==180 & Model_Path$LD==0 & Model_Path$Dis==150)] <- 3
+Model_Path_all$Condition[which(Model_Path$Angle==270 & Model_Path$LD==0 & Model_Path$Dis==150)] <- 4
+
+Model_Path_all$Condition[which(Model_Path$Angle==0 & Model_Path$LD==0 & Model_Path$Dis==350)] <- 5
+Model_Path_all$Condition[which(Model_Path$Angle==90 & Model_Path$LD==0 & Model_Path$Dis==350)] <- 6
+Model_Path_all$Condition[which(Model_Path$Angle==180 & Model_Path$LD==0 & Model_Path$Dis==350)] <- 7
+Model_Path_all$Condition[which(Model_Path$Angle==270 & Model_Path$LD==0 & Model_Path$Dis==350)] <- 8
+
+Model_Path_all$Condition[which(Model_Path$Angle==0 & Model_Path$LD==0 & Model_Path$Dis==250)] <- 9
+Model_Path_all$Condition[which(Model_Path$Angle==90 & Model_Path$LD==0 & Model_Path$Dis==250)] <- 10
+Model_Path_all$Condition[which(Model_Path$Angle==180 & Model_Path$LD==0 & Model_Path$Dis==250)] <- 11
+Model_Path_all$Condition[which(Model_Path$Angle==270 & Model_Path$LD==0 & Model_Path$Dis==250)] <- 12
+
+Model_Path_all$Condition[which(Model_Path$Angle==0 & Model_Path$LD==50 & Model_Path$Dis==150)] <- 13
+Model_Path_all$Condition[which(Model_Path$Angle==90 & Model_Path$LD==50 & Model_Path$Dis==150)] <- 14
+Model_Path_all$Condition[which(Model_Path$Angle==180 & Model_Path$LD==50 & Model_Path$Dis==150)] <- 15
+Model_Path_all$Condition[which(Model_Path$Angle==270 & Model_Path$LD==50 & Model_Path$Dis==150)] <- 16
+
+Model_Path_all$Condition[which(Model_Path$Angle==0 & Model_Path$LD==50 & Model_Path$Dis==350)] <- 17
+Model_Path_all$Condition[which(Model_Path$Angle==90 & Model_Path$LD==50 & Model_Path$Dis==350)] <- 18
+Model_Path_all$Condition[which(Model_Path$Angle==180 & Model_Path$LD==50 & Model_Path$Dis==350)] <- 19
+Model_Path_all$Condition[which(Model_Path$Angle==270 & Model_Path$LD==50 & Model_Path$Dis==350)] <- 20
+
+Model_Path_all$Condition[which(Model_Path$Angle==0 & Model_Path$LD==50 & Model_Path$Dis==250)] <- 21
+Model_Path_all$Condition[which(Model_Path$Angle==90 & Model_Path$LD==50 & Model_Path$Dis==250)] <- 22
+Model_Path_all$Condition[which(Model_Path$Angle==180 & Model_Path$LD==50 & Model_Path$Dis==250)] <- 23
+Model_Path_all$Condition[which(Model_Path$Angle==270 & Model_Path$LD==50 & Model_Path$Dis==250)] <- 24
+
+Model_Path_all$Type <- as.factor(Model_Path_all$Type)
+Model_Path_all$Condition <- as.factor(Model_Path_all$Condition)
+
+datfinal_all <- rbind(Model_Path_all,dat_all_exp)
+```
+
+```{r LorR Logistic}
+datcor <- readXL("./lorr_ratio_Exp3.xlsx", rownames=FALSE, 
+  header=TRUE, na="", sheet="Sheet1", stringsAsFactors=TRUE)
+fit <- glm(datcor$data~datcor$model,family=binomial())
+summary(fit)
+fit <- lrm(datcor$data~datcor$model)
+print(fit)
+```

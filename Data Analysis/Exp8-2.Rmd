@@ -1,0 +1,134 @@
+---
+title: "Exp8-2"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(Rcmdr)
+library(plyr)
+library(ggplot2)
+library(ez)
+library(sfsmisc)
+library(gtools)
+library(zoo)
+library(pracma)
+library(ggsignif)
+library(magrittr)
+library(gganimate)
+```
+
+```{r}
+subs <- dir(path = "./Exp8/FreeWalkData")
+subs <- mixedsort(subs)
+freewalkspeed <- data.frame()
+for (i in 1:length(subs))
+{
+  DatFreeWalk <- read.table(paste0("./Exp8/FreeWalkData/",subs[i]), header = FALSE, sep = ";", na.strings = "NA",dec = ".", strip.white = TRUE)
+  DatFreeWalk$V3 <- as.numeric(gsub(",","",DatFreeWalk$V3))
+  DatFreeWalk <- DatFreeWalk[which(DatFreeWalk$V1>5),]
+  DatFreeWalk$V3[which(DatFreeWalk$V1 %% 2 == 0)] <- (DatFreeWalk$V3[which(DatFreeWalk$V1 %% 2 == 0)] - 1300)*-1
+  DatFreeWalk <- DatFreeWalk[which(DatFreeWalk$V3 > 300),]
+  DatFreeWalk <- DatFreeWalk[which(DatFreeWalk$V3 < 800),]
+  WalkTime <- 0
+  for (trial in 1:15)
+  {
+    SubFreeWalk <- DatFreeWalk[which(DatFreeWalk$V1 == trial),2]
+    rows <- length(SubFreeWalk)
+    WalkTime <- WalkTime + SubFreeWalk[rows] - SubFreeWalk[1]
+  }
+  subspeed <- 5000/WalkTime
+  freewalkspeed <- rbind(freewalkspeed,subspeed)
+}
+```
+
+```{r}
+trialnum <- 150
+datall <- data.frame()
+datfinal <- data.frame()
+for (i in 1:length(subs))
+{
+  dat <- read.table(paste0("./Exp8/Data/",subs[i]), header = FALSE, sep = ";", na.strings = "NA", dec = ".", strip.white = TRUE)
+  dat$V6 <- as.numeric(gsub(",","",dat$V6))
+  dat$V12 <- as.numeric(gsub(",","",dat$V12))
+  dat$V13 <- as.numeric(gsub(",","",dat$V13))  
+  dat$V6[which(dat$V1 %% 2==1)] <- (dat$V6[which(dat$V1 %% 2==1)] - 1300) * -1
+  dat$V7[which(dat$V1 %% 2==1)] <- dat$V7[which(dat$V1 %% 2==1)] * -1
+  dat$V12[which(dat$V1 %% 2==1)] <-  (dat$V12[which(dat$V1 %% 2==1)] - 1300) * -1
+  dat$V13[which(dat$V1 %% 2==1)] <- dat$V13[which(dat$V1 %% 2==1)] * -1
+  for (j in 1:trialnum) 
+  {
+    temp <- dat[which(dat$V1==j),c(1:8,12:13)]
+    temp <- temp[which(temp$V12>-10000),]
+    temp <- temp[which(temp$V6>temp$V12),]
+    if (nrow(temp) == 0)
+    {
+      next
+    }
+    if (temp[1,7]>temp[1,10])
+    {
+      datfinal <- rbind(datfinal,c(i,j,temp[1,3],temp[1,4],temp[1,5],1))
+    }else{
+      datfinal <- rbind(datfinal,c(i,j,temp[1,3],temp[1,4],temp[1,5],0))
+    }
+  }
+}
+names(datfinal) <- c("Sub","Trial","Pos","Speed","Avatar","LR")
+subjectfinal <- ddply(datfinal,.(Sub,Pos,Speed),summarise,ratio = mean(LR))
+final <- ddply(subjectfinal,.(Pos,Speed),summarise,p = mean(ratio),se = sd(ratio)/sqrt(length(subs)))
+final$Pos <- final$Pos*30-90
+final2 <- final
+final2$p[final2$Pos<0] <- 1-final2$p[final2$Pos<0]
+write.table(final,file = "Selection_Data.csv",row.names = FALSE,col.names = FALSE,sep = ",")
+final$Speed <- as.factor(final$Speed)
+final$Pos <- as.factor(final$Pos)
+final2$Speed <- as.factor(final2$Speed)
+final2$Pos <- as.factor(final2$Pos)
+```
+
+```{r}
+sta <- subjectfinal
+sta$Pos <- as.factor(sta$Pos)
+sta$Speed <- as.factor(sta$Speed)
+sta$Sub <- as.factor(sta$Sub)
+fit <- ezANOVA(data = sta,
+               dv = ratio,
+               wid = Sub,
+               within = .(Pos,Speed))
+print(fit)
+```
+
+```{r line right side model}
+final3 <- final
+final3$Type <- "Experiment Data"
+
+datcor <- read.csv("./Exp8_Selection.csv", header=TRUE, sep=",")
+datcor <- datcor[,1:4]
+datcor$se <- 0
+names(datcor) <- c("Pos","Speed","Type","p","se")
+
+test <- read.csv("./Exp8_Selection.csv",header=TRUE, sep=",")
+datcor$p <- test$prediction
+
+datcor_social <- datcor[1:15,]
+datcor_companian <- datcor[16:30,]
+datcor_nbody <- datcor[31:45,]
+
+finalmodel_social <- rbind(datcor_social,final3)
+finalmodel_social$Pos <- as.numeric(finalmodel_social$Pos)
+finalmodel_social$Pos <- as.factor(finalmodel_social$Pos)
+finalmodel_companian <- rbind(datcor_companian,final3)
+finalmodel_companian$Pos <- as.numeric(finalmodel_companian$Pos)
+finalmodel_companian$Pos <- as.factor(finalmodel_companian$Pos)
+finalmodel_nbody <- rbind(datcor_nbody,final3)
+finalmodel_nbody$Pos <- as.numeric(finalmodel_nbody$Pos)
+finalmodel_nbody$Pos <- as.factor(finalmodel_nbody$Pos)
+finalmodel_companian$Type <- factor(finalmodel_companian$Type,levels = c("Experiment Data","COMPANIAN framework"))
+```
+
+```{r psychometric EnergyRatio}
+datcor <- read.table("./corD.csv",
+   header=FALSE, sep=",", na.strings="NA", dec=".", strip.white=TRUE)
+names(datcor) <- c("data","model")
+fit <- lm(datcor$data~datcor$model)
+summary(fit)
+```

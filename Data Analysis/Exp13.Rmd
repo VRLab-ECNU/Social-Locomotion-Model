@@ -1,0 +1,93 @@
+---
+title: "Exp13"
+output: html_document
+---
+```{r message=FALSE, warning=FALSE}
+library(Rcmdr)
+library(plyr)
+library(ggplot2)
+library(ez)
+library(sfsmisc)
+library(gtools)
+```
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+trialnum <- 48
+subs <- dir(path = "./Exp13")
+subs <- mixedsort(subs)
+datall <- data.frame()
+for (i in 1:length(subs))
+{
+  dat <- readXL(paste0("./Exp13/",subs[i]),
+   rownames=FALSE, header=TRUE, na="", sheet="工作表1", stringsAsFactors=FALSE)
+  dat <- dat[1:trialnum,c(2,3,5,6)]
+  datall <- rbind(datall,cbind(rep(i,nrow(dat)),dat))
+}
+names(datall) <- c("Sub","Type","Pos","Com","Judge")
+subjectfinal_temp <- ddply(datall,c("Sub","Type","Pos"),summarise,sub_com1=mean(Com),sub_judge1=mean(Judge))
+subjectfinal <- ddply(subjectfinal_temp,c("Sub","Type"),summarise,sub_com=mean(sub_com1),sub_judge=mean(sub_judge1))
+datfinal <- ddply(subjectfinal,"Type",summarise,feel=mean(sub_com),judgment=mean(sub_judge),feel_se=sd(sub_com)/sqrt(length(subs)),judgment_se=sd(sub_judge)/sqrt(length(subs)))
+
+subdp <- subjectfinal
+subdp$sub_judge <- qnorm(subdp$sub_judge)
+subdp1 <- subset(subdp,Type=="Human")
+subdp2 <- subset(subdp,Type=="Social")
+subdp3 <- subset(subdp,Type=="Companian")
+subdp4 <- subset(subdp,Type=="NBody")
+
+subdp1$dp <- subdp1$sub_judge - subdp2$sub_judge
+subdp1$Type <- "Human vs. Social Locomotion Algorithm"
+
+subdptemp <- subdp1
+subdptemp$dp <- subdp1$sub_judge - subdp3$sub_judge
+subdptemp$Type <- "Human vs. COMPANIAN Framework"
+
+subdptemp2 <- subdp1
+subdptemp2$dp <- subdp1$sub_judge - subdp4$sub_judge
+subdptemp2$Type <- "Human vs. N Body Algorithm"
+
+subdpall <- rbind(subdp1,subdptemp,subdptemp2)
+
+t.test(subdptemp$dp,subdp1$dp,paired = TRUE)
+es1 <- lsr::cohensD(x=subdptemp$dp,y=subdp1$dp,method="paired")
+
+t.test(subdptemp2$dp,subdp1$dp,paired = TRUE)
+es2 <- lsr::cohensD(x=subdptemp2$dp,y=subdp1$dp,method="paired")
+
+alldp <- ddply(subdpall,"Type",summarise,d_prime=mean(dp),d_prime_se=sd(dp)/sqrt(length(subs)))
+```
+
+```{r}
+sta <- subjectfinal
+sta$HorR <- as.factor(sta$HorR)
+sta$Sub <- as.factor(sta$Sub)
+fit1 <- ezANOVA(data = sta,
+               dv = sub_com,
+               wid = Sub,
+               within = .(HorR))
+print(fit1)
+
+fit2 <- ezANOVA(data = sta,
+               dv = sub_judge,
+               wid = Sub,
+               within = .(HorR))
+print(fit2)
+
+fit1_1 <- subset(subjectfinal,Type=="Human")
+fit1_2 <- subset(subjectfinal,Type=="Social")
+model1 <- t.test(fit1_1$sub_com,fit1_2$sub_com,paired = TRUE)
+es1 <- lsr::cohensD(x=fit1_1$sub_com,y=fit1_2$sub_com,method="paired")
+model1
+
+fit1_3 <- subset(subjectfinal,Type=="Model")
+fit1_4 <- subset(subjectfinal,Type=="Robot")
+model2 <- t.test(fit1_3$sub_com,fit1_4$sub_com,paired = TRUE)
+es2 <- lsr::cohensD(x=fit1_3$sub_com,y=fit1_4$sub_com,method="paired")
+model2
+
+fit2_1 <- subset(subjectfinal,HorR==0)
+fit2_2 <- subset(subjectfinal,HorR==1)
+model2 <- t.test(fit2_1$sub_judge,fit2_2$sub_judge,paired = TRUE)
+es2 <- lsr::cohensD(x=fit2_1$sub_judge,y=fit2_2$sub_judge,method="paired")
+model2
+```
