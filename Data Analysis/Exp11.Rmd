@@ -1,7 +1,5 @@
 ---
-title: "Energy_Turing4"
-author: "ZC"
-date: "5/27/2021"
+title: "Exp11"
 output: html_document
 ---
 ```{r message=FALSE, warning=FALSE}
@@ -30,14 +28,6 @@ subjectfinal_temp <- ddply(datall,c("Sub","Type","Pos","Ori"),summarise,sub_com1
 subjectfinal <- ddply(subjectfinal_temp,c("Sub","Type"),summarise,sub_com=mean(sub_com1),sub_judge=mean(sub_judge1))
 datfinal <- ddply(subjectfinal,"Type",summarise,feel=mean(sub_com),judgment=mean(sub_judge),feel_se=sd(sub_com)/sqrt(length(subs)),judgment_se=sd(sub_judge)/sqrt(length(subs)))
 write.table(subjectfinal$sub_com[which(subjectfinal$Type=='Human')],file = "Human.csv",row.names = FALSE,col.names =FALSE,sep = ",")
-
-# post test in SPSS
-comf <- data.frame("Sub"=1:15,"human"=subjectfinal$sub_com[which(subjectfinal$Type=='Human')],"Companian"=subjectfinal$sub_com[which(subjectfinal$Type=='Companian')],"NBody"=subjectfinal$sub_com[which(subjectfinal$Type=='NBody')],"Social"=subjectfinal$sub_com[which(subjectfinal$Type=='Social')])
-write.table(comf,file = "Comfort_Data.csv",row.names = FALSE,col.names =TRUE,sep = ",")
-
-judge <- data.frame("Sub"=1:15,"human"=subjectfinal$sub_judge[which(subjectfinal$Type=='Human')],"Companian"=subjectfinal$sub_judge[which(subjectfinal$Type=='Companian')],"NBody"=subjectfinal$sub_judge[which(subjectfinal$Type=='NBody')],"Social"=subjectfinal$sub_judge[which(subjectfinal$Type=='Social')])
-write.table(judge,file = "Judgement_Data.csv",row.names = FALSE,col.names =TRUE,sep = ",")
-#
 
 subdp <- subjectfinal
 subdp$sub_judge <- qnorm(subdp$sub_judge)
@@ -122,7 +112,7 @@ ggplot(data = plotalldp,aes(x=Type,y=d_prime,fill=Type)) + geom_bar(stat="identi
   axis.text.x = element_text(margin=margin(2, 0, 0, 0, "mm")),
   axis.text.y = element_text(margin=margin(0, 2, 0, 0, "mm")),
   axis.ticks.length=unit(-0.1, "cm"))
-ggsave("Energy_Robot_dprime.pdf",width = 7, height = 6.2, units = "cm",useDingbats=FALSE)
+ggsave("Exp11_dprime.pdf",width = 7, height = 6.2, units = "cm",useDingbats=FALSE)
 ```
 
 ```{r}
@@ -149,7 +139,7 @@ ggplot(data = datplot,aes(x=Type,y=feel,fill=Type)) + geom_bar(stat="identity",p
   axis.text.x = element_text(margin=margin(2, 0, 0, 0, "mm")),
   axis.text.y = element_text(margin=margin(0, 2, 0, 0, "mm")),
   axis.ticks.length=unit(-0.1, "cm"))
-ggsave("Energy_Robot_Rating.pdf",width = 7, height = 6.2, units = "cm",useDingbats=FALSE)
+ggsave("Exp11_Rating.pdf",width = 7, height = 6.2, units = "cm",useDingbats=FALSE)
 ```
 
 ```{r}
@@ -175,7 +165,7 @@ ggplot(data = datplot,aes(x=Type,y=judgment,fill=Type)) + geom_bar(stat="identit
   axis.text.x = element_text(margin=margin(2, 0, 0, 0, "mm")),
   axis.text.y = element_text(margin=margin(0, 2, 0, 0, "mm")),
   axis.ticks.length=unit(-0.1, "cm"))
-ggsave("Energy_Robot_Judgment.pdf",width = 7, height = 6.2, units = "cm",useDingbats=FALSE)
+ggsave("Exp11_Judgment.pdf",width = 7, height = 6.2, units = "cm",useDingbats=FALSE)
 ```
 
 ```{r}
