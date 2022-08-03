@@ -1,0 +1,52 @@
+---
+title: "Exp3"
+output: html_document
+---
+```{r message=FALSE, warning=FALSE}
+library(Rcmdr)
+library(plyr)
+library(ggplot2)
+library(ez)
+library(sfsmisc)
+library(gtools)
+library(lsr)
+library(pwr)
+```
+
+```{r}
+subs <- dir(path = "./Exp3")
+datfinal <- data.frame()
+for (i in 1:length(subs))
+{
+  tps <- dir(path = paste0("./Exp3/",subs[i]))
+  tps <- mixedsort(tps)
+  for (j in 1:length(tps))
+  {
+    dat <- read.table(paste0("./Exp3/",subs[i],"/",tps[j]), header=FALSE, sep="_", na.strings="NA", dec=".", strip.white=TRUE)
+    dat <- dat[2:nrow(dat),]
+    M <- dat[,c(2,3)]
+    M2 <- M[which(M[,1]>=250),]
+    datfinal <- rbind(datfinal,list(i,dat[1,1],M2[1,2]))
+  }
+}
+names(datfinal) <- c("Sub","Angle","LR")
+datfinal$LR[datfinal$LR<0] <- 0
+datfinal$LR[datfinal$LR>0] <- 1
+datfinal$Sub <- as.factor(datfinal$Sub)
+temp <- ddply(datfinal,c("Sub","Angle"),summarise,pp=mean(LR))
+all <- ddply(temp,"Angle",summarise,P=mean(pp),P_SE=sd(pp)/sqrt(length(subs)))
+```
+
+```{r}
+fit <- ezANOVA(data = datfinal,
+               dv = LR,
+               wid = Sub,
+               within = Angle)
+print(fit)
+
+fit2 <- ddply(datfinal,c("Sub","Angle"),summarize,P=mean(LR))
+fit2_1 <- subset(fit2,Angle==0)
+fit2_2 <- subset(fit2,Angle==1)
+model <- t.test(fit2_1$P,fit2_2$P,paired = TRUE)
+es <- cohensD(x=fit2_1$P,y=fit2_2$P,method="paired")
+```
